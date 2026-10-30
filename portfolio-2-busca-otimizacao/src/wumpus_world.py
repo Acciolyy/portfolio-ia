@@ -61,6 +61,7 @@ Pontuação
 
 from __future__ import annotations
 
+import argparse
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Dict, List, Optional, Set, Tuple
@@ -556,7 +557,59 @@ class KnowledgeBasedAgent:
 # Demonstração
 # ---------------------------------------------------------------------------
 
+def _gold_reachable(tamanho: int, fatais: Set[Posicao], inicio: Posicao, ouro: Posicao) -> bool:
+    """True se existe caminho do início ao ouro sem passar por célula fatal (visão do observador)."""
+    visitadas, fila = {inicio}, [inicio]
+    while fila:
+        atual = fila.pop()
+        if atual == ouro:
+            return True
+        r, c = atual
+        for viz in ((r + 1, c), (r - 1, c), (r, c + 1), (r, c - 1)):
+            if 0 <= viz[0] < tamanho and 0 <= viz[1] < tamanho and viz not in fatais and viz not in visitadas:
+                visitadas.add(viz)
+                fila.append(viz)
+    return False
+
+
+def varrer_mundos(tamanho: int = 4) -> None:
+    """Roda o agente em todos os mundos com 1 Wumpus e 1 poço (início em (0,0)).
+
+    Mede segurança (o agente nunca deve morrer) e completude prática (quantas
+    vezes pega o ouro quando ele é fisicamente alcançável sem passar por célula
+    fatal, algo que o agente não sabe de antemão).
+    """
+    inicio = (0, 0)
+    celulas = [(r, c) for r in range(tamanho) for c in range(tamanho) if (r, c) != inicio]
+    total = mortes = alcancavel = pegou = pegou_alcancavel = 0
+    for wumpus_pos in celulas:
+        for poco in (c for c in celulas if c != wumpus_pos):
+            for ouro in (c for c in celulas if c not in (wumpus_pos, poco)):
+                mundo = Environment(tamanho=tamanho, posicao_wumpus=wumpus_pos, posicoes_pocos={poco},
+                                    posicao_ouro=ouro, posicao_inicial=inicio)
+                resultado = KnowledgeBasedAgent(environment=mundo).run_simulation(limite_passos=100)
+                acessivel = _gold_reachable(tamanho, {wumpus_pos, poco}, inicio, ouro)
+                total += 1
+                mortes += not resultado.sobreviveu
+                alcancavel += acessivel
+                pegou += resultado.pegou_ouro
+                pegou_alcancavel += resultado.pegou_ouro and acessivel
+    print(f"  Mundos {tamanho}x{tamanho} com 1 Wumpus e 1 poço: {total}")
+    print(f"  Mortes do agente        : {mortes}")
+    print(f"  Ouro alcançável (sem células fatais): {alcancavel}")
+    print(f"  Ouro coletado           : {pegou} ({pegou / total:.1%} dos mundos, "
+          f"{pegou_alcancavel / alcancavel:.1%} dos alcançáveis)")
+
+
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--sweep", action="store_true",
+                        help="roda o agente em todos os mundos com 1 Wumpus e 1 poço e mede segurança e completude")
+    args = parser.parse_args()
+    if args.sweep:
+        varrer_mundos()
+        raise SystemExit(0)
+
     SEP = "─" * 55
 
     # Mundo 4×4 onde o ouro é alcançável por inferência puramente local.

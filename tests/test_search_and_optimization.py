@@ -119,3 +119,26 @@ def test_wumpus_agent_gets_the_gold_without_entering_a_fatal_cell():
     result = wumpus.KnowledgeBasedAgent(environment=world).run_simulation(limite_passos=100)
     assert result.sobreviveu and result.pegou_ouro
     assert not any(world.e_fatal(pos) for _, pos in result.trilha_acoes)
+
+
+def test_wumpus_agent_never_dies_in_any_world_with_one_pit_and_this_wumpus():
+    cells = [(r, c) for r in range(4) for c in range(4) if (r, c) != (0, 0)]
+    wumpus_pos = (3, 1)
+    for pit in (c for c in cells if c != wumpus_pos):
+        for gold in (c for c in cells if c not in (wumpus_pos, pit)):
+            world = wumpus.Environment(
+                tamanho=4, posicao_wumpus=wumpus_pos, posicoes_pocos={pit},
+                posicao_ouro=gold, posicao_inicial=(0, 0),
+            )
+            result = wumpus.KnowledgeBasedAgent(environment=world).run_simulation(limite_passos=100)
+            assert result.sobreviveu, (pit, gold)
+
+
+def test_wumpus_agent_stays_alive_without_gold_when_no_move_is_provably_safe():
+    # Pits on both neighbours of the start: a breeze at (0,0) cannot say which one is safe.
+    world = wumpus.Environment(
+        tamanho=4, posicao_wumpus=(3, 3), posicoes_pocos={(0, 1), (1, 0)},
+        posicao_ouro=(2, 2), posicao_inicial=(0, 0),
+    )
+    result = wumpus.KnowledgeBasedAgent(environment=world).run_simulation(limite_passos=100)
+    assert result.sobreviveu and not result.pegou_ouro
