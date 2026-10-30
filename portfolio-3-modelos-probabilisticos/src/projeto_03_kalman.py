@@ -265,8 +265,10 @@ class KalmanFilter2D:
 
         # --- Etapa de Atualização (a posteriori) ---
         self._x = x_pred + K @ innovation
-        # Forma de Joseph: mais numericamente estável que P = (I-KH)P
-        self._P = (self._I - K @ self.H) @ P_pred
+        # Forma de Joseph: P = (I-KH)·P·(I-KH)ᵀ + K·R·Kᵀ. Com o ganho ótimo é igual a
+        # (I-KH)·P, mas mantém P simétrica e semidefinida positiva sob erro de arredondamento.
+        A = self._I - K @ self.H
+        self._P = A @ P_pred @ A.T + K @ self.R @ K.T
 
         return KalmanState(
             x_est=self._x.copy(),
