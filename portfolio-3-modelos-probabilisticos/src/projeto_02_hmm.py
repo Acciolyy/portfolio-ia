@@ -38,6 +38,8 @@ Bibliotecas
 - matplotlib : geração dos gráficos de resultados e comparativos.
 """
 
+import argparse
+import statistics
 import time
 from dataclasses import dataclass, field
 from typing import List, Tuple
@@ -517,7 +519,46 @@ def generate_figures(report: HMMReport) -> None:
 # Ponto de entrada
 # ---------------------------------------------------------------------------
 
+def evaluate_seeds(n_seeds: int, first_seed: int = 7, length: int = 200) -> None:
+    """Repete a simulação com várias sementes e compara as acurácias.
+
+    As sequências são amostradas do próprio modelo usado na decodificação, então
+    a acurácia mede a qualidade da inferência, não o ajuste do modelo a dados
+    reais. Inclui uma linha de base sem memória temporal (estado mais provável
+    dada só a observação atual) e a diferença pareada Viterbi - Forward.
+    """
+    model = AppUsageHMM(build_parameters())
+    B = model._p.B
+    acc = {"Viterbi": [], "Forward": [], "Sem tempo (argmax de B)": []}
+    for seed in range(first_seed, first_seed + n_seeds):
+        true_states, obs = model.simulate(length=length, seed=seed)
+        truth = np.array(true_states)
+        acc["Viterbi"].append(float(np.mean(np.array(model.viterbi(obs).decoded_states) == truth)))
+        acc["Forward"].append(float(np.mean(np.array(model.forward(obs).most_likely) == truth)))
+        acc["Sem tempo (argmax de B)"].append(float(np.mean(np.argmax(B[:, obs], axis=0) == truth)))
+
+    print(f"  {n_seeds} sequências de {length} eventos (sementes {first_seed}..{first_seed + n_seeds - 1})")
+    for name, values in acc.items():
+        std = statistics.stdev(values) if len(values) > 1 else 0.0
+        print(f"  {name:<24}: {statistics.mean(values):.2%} ± {std:.2%} "
+              f"(min {min(values):.2%}, max {max(values):.2%})")
+    diff = [v - f for v, f in zip(acc["Viterbi"], acc["Forward"])]
+    wins = sum(d > 0 for d in diff)
+    ties = sum(d == 0 for d in diff)
+    print(f"  Viterbi - Forward: {statistics.mean(diff):+.2%} ± "
+          f"{statistics.stdev(diff) if len(diff) > 1 else 0.0:.2%} "
+          f"| Viterbi melhor em {wins}, empate em {ties}, Forward melhor em {n_seeds - wins - ties}")
+
+
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--seeds", type=int, default=1,
+                        help="com N > 1, apenas avalia N sequências simuladas e imprime média ± desvio")
+    args = parser.parse_args()
+    if args.seeds > 1:
+        evaluate_seeds(args.seeds)
+        raise SystemExit(0)
+
     report = run_experiment()
     generate_figures(report)
     print("\n" + "=" * 60)

@@ -37,6 +37,8 @@ Bibliotecas
 - matplotlib : geração dos gráficos de trajetória e de erro.
 """
 
+import argparse
+import statistics
 import time
 from dataclasses import dataclass, field
 from typing import List, Tuple
@@ -493,7 +495,36 @@ def generate_figures(report: DroneFlightReport) -> None:
 # Ponto de entrada
 # ---------------------------------------------------------------------------
 
+def evaluate_seeds(n_seeds: int, first_seed: int = 42) -> None:
+    """Repete o experimento com várias sementes (trajetória e ruído diferentes)."""
+    raw, kal = [], []
+    for seed in range(first_seed, first_seed + n_seeds):
+        true_traj, noisy = DroneTrajectorySimulator(dt=0.5, seed=seed).generate(
+            num_steps=200, gps_noise_std=4.0)
+        est = run_kalman_filter(noisy, dt=0.5, process_noise_std=0.3,
+                                measurement_noise_std=4.0).estimated_positions
+        raw.append(float(np.sqrt(np.mean(np.sum((noisy - true_traj) ** 2, axis=1)))))
+        kal.append(float(np.sqrt(np.mean(np.sum((est - true_traj) ** 2, axis=1)))))
+    reduction = [(1 - k / r) * 100 for r, k in zip(raw, kal)]
+    sd = statistics.stdev if n_seeds > 1 else (lambda _: 0.0)
+    print(f"  {n_seeds} execuções (sementes {first_seed}..{first_seed + n_seeds - 1})")
+    print(f"  RMSE GPS bruto: {statistics.mean(raw):.3f} ± {sd(raw):.3f} m")
+    print(f"  RMSE Kalman   : {statistics.mean(kal):.3f} ± {sd(kal):.3f} m "
+          f"(min {min(kal):.3f}, max {max(kal):.3f})")
+    print(f"  Redução       : {statistics.mean(reduction):.1f}% ± {sd(reduction):.1f} "
+          f"(min {min(reduction):.1f}%, max {max(reduction):.1f}%) | "
+          f"Kalman pior que o GPS bruto em {sum(k > r for r, k in zip(raw, kal))} de {n_seeds}")
+
+
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--seeds", type=int, default=1,
+                        help="com N > 1, apenas avalia N execuções e imprime média ± desvio")
+    args = parser.parse_args()
+    if args.seeds > 1:
+        evaluate_seeds(args.seeds)
+        raise SystemExit(0)
+
     report = run_experiment()
     generate_figures(report)
     print("\n" + "=" * 60)
