@@ -25,7 +25,8 @@ from time import perf_counter
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.datasets import load_wine
-from sklearn.model_selection import train_test_split, StratifiedKFold, cross_val_score
+from sklearn.model_selection import train_test_split, RepeatedStratifiedKFold, cross_validate
+from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import GradientBoostingClassifier
@@ -59,10 +60,16 @@ class ClassificationResult:
 
 @dataclass
 class CrossValidationResult:
-    """DTO com o resultado da validacao cruzada estratificada de um modelo."""
+    """DTO com o resultado da validacao cruzada estratificada repetida.
+
+    As pontuacoes de folds de repeticoes diferentes reutilizam as mesmas
+    amostras, entao nao sao independentes: o desvio e descritivo da
+    variabilidade entre folds, nao um erro-padrao da media.
+    """
 
     model_name: str
     fold_scores: np.ndarray = field(repr=False)
+    fold_f1: np.ndarray = field(repr=False)
 
     @property
     def mean(self) -> float:
@@ -70,7 +77,15 @@ class CrossValidationResult:
 
     @property
     def std(self) -> float:
-        return float(np.std(self.fold_scores))
+        return float(np.std(self.fold_scores, ddof=1))
+
+    @property
+    def f1_mean(self) -> float:
+        return float(np.mean(self.fold_f1))
+
+    @property
+    def f1_std(self) -> float:
+        return float(np.std(self.fold_f1, ddof=1))
 
 
 class WineCultivarClassifier:
@@ -163,10 +178,15 @@ class BaselineLogisticClassifier:
 
 
 def run_cross_validation(estimator, x: np.ndarray, y: np.ndarray, model_name: str,
-                          n_splits: int = 5) -> CrossValidationResult:
-    cv = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=RANDOM_STATE)
-    scores = cross_val_score(estimator, x, y, cv=cv, scoring="accuracy")
-    return CrossValidationResult(model_name=model_name, fold_scores=scores)
+                          n_splits: int = 5, n_repeats: int = 10) -> CrossValidationResult:
+    """Validacao cruzada estratificada repetida. Os folds dependem so da
+    semente, entao dois modelos avaliados aqui veem exatamente as mesmas
+    particoes (comparacao pareada). O estimador deve ser um Pipeline quando
+    ha pre-processamento, para o scaler ser ajustado so no treino de cada fold."""
+    cv = RepeatedStratifiedKFold(n_splits=n_splits, n_repeats=n_repeats, random_state=RANDOM_STATE)
+    scores = cross_validate(estimator, x, y, cv=cv, scoring=("accuracy", "f1_macro"))
+    return CrossValidationResult(model_name=model_name, fold_scores=scores["test_accuracy"],
+                                 fold_f1=scores["test_f1_macro"])
 
 
 def plot_confusion_matrix(result: ClassificationResult, class_names: list[str], filename: str) -> None:
@@ -200,20 +220,20 @@ def plot_feature_importance(importances: np.ndarray, feature_names: list[str], f
     plt.close(fig)
 
 
-def plot_model_comparison(results: list[ClassificationResult], filename: str) -> None:
+def plot_model_comparison(results: list[CrossValidationResult], filename: str) -> None:
     fig, ax = plt.subplots(figsize=(6, 4.2))
     names = [r.model_name for r in results]
-    acc = [r.accuracy for r in results]
-    f1 = [r.f1_macro for r in results]
     x = np.arange(len(names))
     width = 0.35
-    ax.bar(x - width / 2, acc, width, label="Acuracia", color="#7B2D26")
-    ax.bar(x + width / 2, f1, width, label="F1-macro", color="#B08968")
+    ax.bar(x - width / 2, [r.mean for r in results], width, yerr=[r.std for r in results],
+           capsize=4, label="Acuracia", color="#7B2D26")
+    ax.bar(x + width / 2, [r.f1_mean for r in results], width, yerr=[r.f1_std for r in results],
+           capsize=4, label="F1-macro", color="#B08968")
     ax.set_xticks(x)
     ax.set_xticklabels(names)
     ax.set_ylim(0.8, 1.02)
-    ax.set_ylabel("Score")
-    ax.set_title("Comparativo entre Gradient Boosting e Regressao Logistica")
+    ax.set_ylabel("Score (media +- desvio entre folds)")
+    ax.set_title("Validacao cruzada 5x10 folds")
     ax.legend()
     fig.tight_layout()
     fig.savefig(FIGS_DIR / filename, dpi=150)
@@ -236,11 +256,15 @@ def main() -> None:
     baseline = BaselineLogisticClassifier().fit(x_train, y_train)
     baseline_result = baseline.evaluate(x_test, y_test, "Regressao Logistica")
 
-    gb_cv = run_cross_validation(GradientBoostingClassifier(
+    # Pipelines: o scaler e ajustado so no treino de cada fold (sem vazamento).
+    gb_cv = run_cross_validation(make_pipeline(StandardScaler(), GradientBoostingClassifier(
         n_estimators=150, learning_rate=0.08, max_depth=2, random_state=RANDOM_STATE
-    ), x, y, "Gradient Boosting")
+    )), x, y, "Gradient Boosting")
+    lr_cv = run_cross_validation(make_pipeline(
+        StandardScaler(), LogisticRegression(max_iter=2000, random_state=RANDOM_STATE)
+    ), x, y, "Regressao Logistica")
 
-    print("=== Resultado no conjunto de teste ===")
+    print(f"=== Split unico de teste ({len(y_test)} amostras; 1 erro = {100/len(y_test):.1f} pontos) ===")
     for r in (gb_result, baseline_result):
         print(f"{r.model_name}: acc={r.accuracy:.4f} f1_macro={r.f1_macro:.4f} "
               f"roc_auc_ovr={r.roc_auc_ovr:.4f} tempo={r.training_time_ms:.3f}ms")
@@ -248,13 +272,17 @@ def main() -> None:
     print("\n=== Relatorio de classificacao (Gradient Boosting) ===")
     print(gb_result.report)
 
-    print("=== Validacao cruzada estratificada (5 folds) ===")
-    print(f"Gradient Boosting: media={gb_cv.mean:.4f} desvio={gb_cv.std:.4f} "
-          f"folds={np.round(gb_cv.fold_scores, 4)}")
+    n_folds = len(gb_cv.fold_scores)
+    print(f"=== Validacao cruzada estratificada repetida (5x10 = {n_folds} folds, mesmas particoes) ===")
+    for cv in (gb_cv, lr_cv):
+        print(f"{cv.model_name}: acc={cv.mean:.4f} +- {cv.std:.4f} | f1_macro={cv.f1_mean:.4f} +- {cv.f1_std:.4f}")
+    diff = lr_cv.fold_scores - gb_cv.fold_scores
+    print(f"Diferenca pareada (LR - GB) por fold: media={diff.mean():+.4f} "
+          f"| LR melhor em {(diff > 0).sum()}, empate em {(diff == 0).sum()}, GB melhor em {(diff < 0).sum()} de {n_folds}")
 
     plot_confusion_matrix(gb_result, class_names, "p1_confusion_matrix.png")
     plot_feature_importance(gb_classifier.feature_importances(), feature_names, "p1_feature_importance.png")
-    plot_model_comparison([gb_result, baseline_result], "p1_model_comparison.png")
+    plot_model_comparison([gb_cv, lr_cv], "p1_model_comparison.png")
 
     print("\nFiguras salvas em:", FIGS_DIR)
 
