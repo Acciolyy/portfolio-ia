@@ -18,6 +18,9 @@ caracteriza um problema de aprendizado por reforco model-free.
 
 from __future__ import annotations
 
+import argparse
+import heapq
+import statistics
 from dataclasses import dataclass, field
 from pathlib import Path
 from enum import IntEnum
@@ -292,7 +295,89 @@ def plot_policy_and_path(config: GridWorldConfig, path: list[tuple[int, int]], f
     plt.close(fig)
 
 
+def optimal_reference(config: GridWorldConfig) -> tuple[int, float]:
+    """Referencia exata do ambiente: (menor numero de passos, melhor retorno).
+
+    Dijkstra a partir da origem com custo 1 por passo mais |hazard_penalty| ao
+    entrar numa celula de risco. O retorno otimo e a recompensa do objetivo
+    menos o custo dos passos anteriores a ele.
+    """
+    best: dict[tuple[int, int], float] = {config.start: 0.0}
+    steps: dict[tuple[int, int], int] = {config.start: 0}
+    heap = [(0.0, 0, config.start)]
+    while heap:
+        cost, n_steps, pos = heapq.heappop(heap)
+        if cost > best.get(pos, float("inf")):
+            continue
+        if pos == config.goal:
+            break
+        for d_row, d_col in ACTION_DELTAS.values():
+            nxt = (pos[0] + d_row, pos[1] + d_col)
+            if not (0 <= nxt[0] < config.n_rows and 0 <= nxt[1] < config.n_cols) or nxt in config.obstacles:
+                continue
+            step_cost = -config.step_penalty + (-config.hazard_penalty if nxt in config.hazard_zone else 0.0)
+            if nxt == config.goal:
+                step_cost = -config.goal_reward
+            if cost + step_cost < best.get(nxt, float("inf")):
+                best[nxt] = cost + step_cost
+                steps[nxt] = n_steps + 1
+                heapq.heappush(heap, (cost + step_cost, n_steps + 1, nxt))
+    return steps[config.goal], -best[config.goal]
+
+
+def path_return(config: GridWorldConfig, path: list[tuple[int, int]]) -> float:
+    """Retorno nao descontado de um caminho, com as mesmas regras do ambiente."""
+    total = 0.0
+    for pos in path[1:]:
+        if pos == config.goal:
+            total += config.goal_reward
+        else:
+            total += config.step_penalty + (config.hazard_penalty if pos in config.hazard_zone else 0.0)
+    return total
+
+
+def evaluate_seeds(config: GridWorldConfig, n_seeds: int, first_seed: int = RANDOM_STATE) -> None:
+    """Treina um agente por semente e compara a politica gulosa final com o otimo."""
+    opt_steps, opt_return = optimal_reference(config)
+    rows = []
+    for seed in range(first_seed, first_seed + n_seeds):
+        env = WarehouseGridWorld(config)
+        agent = QLearningAgent(n_states=env.n_states, n_actions=env.n_actions, random_state=seed)
+        report = train(env, agent, n_episodes=500)
+        path = extract_greedy_path(env, agent, config)
+        reached = path[-1] == config.goal
+        rows.append({
+            "reached": reached,
+            "steps": len(path) - 1,
+            "return": path_return(config, path) if reached else float("nan"),
+            "first20": float(report.rewards[:20].mean()),
+            "last20": float(report.rewards[-20:].mean()),
+        })
+
+    def fmt(key: str) -> str:
+        values = [r[key] for r in rows if r["reached"] or key in ("first20", "last20")]
+        std = statistics.stdev(values) if len(values) > 1 else 0.0
+        return f"{statistics.mean(values):.2f} +- {std:.2f}"
+
+    print(f"=== {n_seeds} sementes (a partir de {first_seed}) | referencia exata: "
+          f"{opt_steps} passos, retorno {opt_return:.0f} ===")
+    print(f"Politica gulosa chega ao objetivo: {sum(r['reached'] for r in rows)}/{n_seeds}")
+    print(f"Politica gulosa com o numero minimo de passos: "
+          f"{sum(r['reached'] and r['steps'] == opt_steps for r in rows)}/{n_seeds}")
+    print(f"Politica gulosa com o retorno otimo: "
+          f"{sum(r['reached'] and r['return'] == opt_return for r in rows)}/{n_seeds}")
+    print(f"Passos da politica gulosa: {fmt('steps')}")
+    print(f"Retorno da politica gulosa: {fmt('return')}")
+    print(f"Recompensa media nos 20 primeiros episodios: {fmt('first20')}")
+    print(f"Recompensa media nos 20 ultimos episodios (com exploracao): {fmt('last20')}")
+
+
 def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--seeds", type=int, default=1,
+                        help="com N > 1, apenas treina N agentes (sementes consecutivas) e imprime media +- desvio")
+    args = parser.parse_args()
+
     obstacles = frozenset({
         (1, 2), (2, 2), (3, 2), (4, 2),
         (2, 5), (3, 5), (4, 5), (5, 5),
@@ -301,6 +386,10 @@ def main() -> None:
     hazard_zone = frozenset({(1, 6), (2, 6), (3, 6), (1, 7), (2, 7)})
 
     config = GridWorldConfig(obstacles=obstacles, hazard_zone=hazard_zone)
+    if args.seeds > 1:
+        evaluate_seeds(config, args.seeds)
+        return
+
     env = WarehouseGridWorld(config)
     agent = QLearningAgent(n_states=env.n_states, n_actions=env.n_actions)
 
