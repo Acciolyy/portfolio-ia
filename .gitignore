@@ -27,3 +27,4 @@ data/
 *.ckpt
 *.h5
 .DS_Store
+mnist_data/
