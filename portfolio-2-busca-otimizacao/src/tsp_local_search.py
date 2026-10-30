@@ -50,7 +50,7 @@ import statistics
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 
 
 # ---------------------------------------------------------------------------
@@ -634,6 +634,41 @@ DF_CITIES: List[City] = [
 
 
 # ---------------------------------------------------------------------------
+# Hill Climbing com reinícios aleatórios
+# ---------------------------------------------------------------------------
+
+class HillClimbingRestarts(HillClimbing):
+    """Hill Climbing que recomeça de um tour aleatório ao parar num ótimo local.
+
+    Repete :class:`HillClimbing` até gastar o orçamento de avaliações e devolve
+    o melhor tour entre os reinícios. É a linha de base justa contra o
+    Simulated Annealing quando ambos têm o mesmo número de avaliações.
+    """
+
+    def optimize(self, max_iterations: int = 10_000) -> OptimizationResult:
+        start_time: float = time.perf_counter()
+        remaining: int = max_iterations
+        best: Optional[OptimizationResult] = None
+        initial_distance: Optional[float] = None
+        while remaining > 0:
+            result = super().optimize(remaining)
+            remaining -= max(result.iterations, 1)
+            if initial_distance is None:
+                initial_distance = result.initial_distance_km
+            if best is None or result.best_distance_km < best.best_distance_km:
+                best = result
+        assert best is not None and initial_distance is not None
+        return OptimizationResult(
+            algorithm_name=self.algorithm_name,
+            best_route=best.best_route,
+            best_distance_km=best.best_distance_km,
+            iterations=max_iterations - remaining,
+            elapsed_ms=(time.perf_counter() - start_time) * 1_000,
+            initial_distance_km=initial_distance,
+        )
+
+
+# ---------------------------------------------------------------------------
 # Referência exata e avaliação com várias sementes
 # ---------------------------------------------------------------------------
 
@@ -657,33 +692,59 @@ def solve_exact(cities: List[City]) -> Tuple[List[City], float]:
     return best_route, best_distance
 
 
-def evaluate_seeds(
+def make_random_cities(n: int, instance_seed: int, half_side_km: float = 30.0) -> List[City]:
+    """Instância sintética: *n* cidades uniformes em [-L, L]², com semente própria.
+
+    A semente da instância é independente das sementes dos algoritmos.
+    """
+    rng = random.Random(instance_seed)
+    return [
+        City(f"C{i + 1:02d}", x=rng.uniform(-half_side_km, half_side_km),
+             y=rng.uniform(-half_side_km, half_side_km))
+        for i in range(n)
+    ]
+
+
+def compare_algorithms(
     cities: List[City],
     seeds: range,
-    max_iterations: int,
-    optimal_km: float,
+    budget: int,
+    schedules: Dict[str, float],
+    reference_km: Optional[float] = None,
 ) -> None:
-    """Roda HC e SA com cada semente e imprime média ± desvio e gap ao ótimo."""
-    runs: Dict[str, List[OptimizationResult]] = {"HillClimbing": [], "SimulatedAnnealing": []}
-    for seed in seeds:
-        runs["HillClimbing"].append(HillClimbing(cities, seed=seed).optimize(max_iterations))
-        runs["SimulatedAnnealing"].append(
-            SimulatedAnnealing(cities, initial_temperature=800.0, cooling_rate=0.995, seed=seed)
-            .optimize(max_iterations)
-        )
+    """Compara HC, HC com reinícios e SA (um ou mais cronogramas) com o mesmo
+    orçamento de *budget* avaliações da função de custo, para cada semente.
 
-    print(f"  Ótimo (força bruta): {optimal_km:.2f} km | {len(seeds)} sementes")
-    for name, results in runs.items():
-        dist = [r.best_distance_km for r in results]
-        hits = sum(d <= optimal_km + 1e-6 for d in dist)
+    Sem *reference_km* (ótimo exato), o gap usa o melhor tour visto em todas
+    as execuções. Imprime média ± desvio, melhor, pior, gap e tempo mediano.
+    """
+    factories: Dict[str, Callable[[int], OptimizationResult]] = {
+        "HillClimbing": lambda sd: HillClimbing(cities, seed=sd).optimize(budget),
+        "HillClimbing+reinícios": lambda sd: HillClimbingRestarts(cities, seed=sd).optimize(budget),
+    }
+    for label, rate in schedules.items():
+        factories[f"SA ({label})"] = lambda sd, rate=rate: SimulatedAnnealing(
+            cities, initial_temperature=800.0, cooling_rate=rate, seed=sd
+        ).optimize(budget)
+
+    runs = {name: [make(sd) for sd in seeds] for name, make in factories.items()}
+    best_seen = min(r.best_distance_km for rs in runs.values() for r in rs)
+    reference = reference_km if reference_km is not None else best_seen
+    ref_label = "ótimo exato" if reference_km is not None else "melhor visto"
+
+    print(f"  {len(cities)} cidades | {len(seeds)} sementes | orçamento {budget:,} avaliações | "
+          f"referência ({ref_label}): {reference:.2f} km")
+    for name, rs in runs.items():
+        dist = [r.best_distance_km for r in rs]
+        mean = statistics.mean(dist)
         std = statistics.stdev(dist) if len(dist) > 1 else 0.0
+        hits = sum(d <= reference + 1e-6 for d in dist)
         print(
-            f"  {name:<19}: {statistics.mean(dist):.2f} ± {std:.2f} km "
-            f"(min {min(dist):.2f}, max {max(dist):.2f}) | "
-            f"gap médio {max(0.0, statistics.mean(dist) / optimal_km * 100 - 100):.2f}% | "
-            f"ótimo em {hits}/{len(dist)} | "
-            f"iterações {statistics.median(r.iterations for r in results):,.0f} | "
-            f"tempo mediano {statistics.median(r.elapsed_ms for r in results):.2f} ms"
+            f"  {name:<24}: {mean:.2f} ± {std:.2f} km | melhor {min(dist):.2f} | pior {max(dist):.2f} | "
+            f"gap médio {max(0.0, mean / reference * 100 - 100):.2f}% | "
+            f"na referência {hits}/{len(dist)} | "
+            f"avaliações (mediana) {statistics.median(r.iterations for r in rs):,.0f} | "
+            f"tempo mediano {statistics.median(r.elapsed_ms for r in rs):.1f} ms"
         )
 
 
@@ -698,6 +759,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     SEED: int = 42
+    INSTANCE_SEED: int = 2026   # semente da instância aleatória, separada das dos algoritmos
     SEP: str = "─" * 62
 
     hc_optimizer = HillClimbing(cities=DF_CITIES, seed=SEED)
@@ -732,10 +794,18 @@ if __name__ == "__main__":
     print(SEP)
 
     if args.seeds > 1:
+        seeds = range(SEED, SEED + args.seeds)
+        # Cronograma atual (cooling 0.995) e um mais lento (0.9998), mostrados lado a lado:
+        # com T0 = 800 e 50.000 avaliações, o atual congela após ~3.000 iterações.
+        schedules = {"0.995": 0.995, "0.9998": 0.9998}
         _, optimal_km = solve_exact(DF_CITIES)
         print()
         print(SEP)
-        print("  Várias sementes")
+        print("  Instância 1 — 10 Regiões Administrativas do DF")
         print(SEP)
-        evaluate_seeds(DF_CITIES, range(SEED, SEED + args.seeds), 50_000, optimal_km)
+        compare_algorithms(DF_CITIES, seeds, 50_000, schedules, reference_km=optimal_km)
+        print(SEP)
+        print(f"  Instância 2 — 40 cidades aleatórias (semente da instância = {INSTANCE_SEED})")
+        print(SEP)
+        compare_algorithms(make_random_cities(40, INSTANCE_SEED), seeds, 50_000, schedules)
         print(SEP)
