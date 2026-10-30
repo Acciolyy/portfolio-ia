@@ -44,6 +44,8 @@ mesmo problema pode ser atacado por solvers diferentes.
 
 from __future__ import annotations
 
+import argparse
+import statistics
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -502,6 +504,11 @@ CORES_DISPONIVEIS: List[Valor] = ["Vermelho", "Verde", "Azul", "Amarelo"]
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--repeat", type=int, default=1,
+                        help="com N > 1, repete a medição de tempo N vezes e reporta a mediana")
+    args = parser.parse_args()
+
     SEP = "─" * 55
 
     problema = MapColoringProblem(
@@ -538,3 +545,12 @@ if __name__ == "__main__":
     print(f"  Nós explorados c/ MRV : {resultado_mrv.nos_explorados}")
     print(f"  Nós explorados s/ MRV : {resultado_estatico.nos_explorados}")
     print(SEP)
+
+    if args.repeat > 1:
+        print(f"  Tempo mediano ({args.repeat} repetições)")
+        print(SEP)
+        for rotulo, usar_mrv in (("com MRV", True), ("sem MRV", False)):
+            runs = [BacktrackingSearch(csp=problema, usar_mrv=usar_mrv).resolver() for _ in range(args.repeat)]
+            print(f"  {rotulo}: {statistics.median(r.tempo_ms for r in runs):.4f} ms "
+                  f"| {runs[0].nos_explorados} nós | {runs[0].backtracks} backtracks")
+        print(SEP)

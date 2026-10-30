@@ -48,7 +48,9 @@ Exemplo de uso
 
 from __future__ import annotations
 
+import argparse
 import heapq
+import statistics
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -637,6 +639,11 @@ def inadmissible_nodes(
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--repeat", type=int, default=1,
+                        help="com N > 1, repete a medição de tempo N vezes e reporta a mediana")
+    args = parser.parse_args()
+
     separator: str = "─" * 55
 
     astar_engine: AStarSearch = AStarSearch(FGA_GRAPH, FGA_HEURISTICS)
@@ -657,3 +664,14 @@ if __name__ == "__main__":
         print()
         print(greedy_engine.execute_search(source_node=source, goal_node=goal))
         print()
+
+    if args.repeat > 1:
+        print(separator)
+        print(f"  Tempo mediano e nós expandidos ({args.repeat} repetições)")
+        print(separator)
+        for source, goal in scenarios:
+            for engine in (astar_engine, greedy_engine):
+                runs = [engine.execute_search(source_node=source, goal_node=goal) for _ in range(args.repeat)]
+                print(f"  {source:>4} → {goal:<3} {runs[0].algorithm_name:<13}: "
+                      f"{runs[0].total_cost_m:>5.0f} m | {runs[0].nodes_expanded} nós | "
+                      f"{statistics.median(r.elapsed_ms for r in runs):.4f} ms")

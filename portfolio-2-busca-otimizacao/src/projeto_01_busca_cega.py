@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import argparse
+import statistics
 import time
 from abc import ABC, abstractmethod
 from collections import deque
@@ -215,6 +217,11 @@ class DepthFirstSearch(GraphSearch):
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--repeat", type=int, default=1,
+                        help="com N > 1, repete a medição de tempo N vezes e reporta a mediana")
+    args = parser.parse_args()
+
     # Grafo dirigido com ciclos — topologia realista para demonstrações acadêmicas.
     #
     #        ┌──────────────────────┐
@@ -270,3 +277,13 @@ if __name__ == "__main__":
     print()
     print(dfs_engine.execute_search(source_node="G", target_node="A"))
     print(separator)
+
+    if args.repeat > 1:
+        print()
+        print(separator)
+        print(f"TEMPO MEDIANO ({args.repeat} repetições, source=A → target=I)")
+        print(separator)
+        for engine in (bfs_engine, dfs_engine):
+            runs = [engine.execute_search(source_node="A", target_node="I") for _ in range(args.repeat)]
+            print(f"  {runs[0].algorithm_name:<22}: {statistics.median(r.elapsed_ms for r in runs):.4f} ms "
+                  f"| nós visitados {runs[0].total_nodes_visited}")
