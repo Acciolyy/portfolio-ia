@@ -53,7 +53,7 @@ class ClassificationResult:
     accuracy: float
     f1_macro: float
     roc_auc_ovr: float
-    training_time_ms: float
+    inference_time_ms: float
     confusion: np.ndarray
     report: str
 
@@ -134,7 +134,7 @@ class WineCultivarClassifier:
             accuracy=accuracy_score(y_test, y_pred),
             f1_macro=f1_score(y_test, y_pred, average="macro"),
             roc_auc_ovr=roc_auc_score(y_test, y_proba, multi_class="ovr"),
-            training_time_ms=elapsed_ms,
+            inference_time_ms=elapsed_ms,
             confusion=confusion_matrix(y_test, y_pred),
             report=classification_report(y_test, y_pred, target_names=self._class_names),
         )
@@ -171,7 +171,7 @@ class BaselineLogisticClassifier:
             accuracy=accuracy_score(y_test, y_pred),
             f1_macro=f1_score(y_test, y_pred, average="macro"),
             roc_auc_ovr=roc_auc_score(y_test, y_proba, multi_class="ovr"),
-            training_time_ms=elapsed_ms,
+            inference_time_ms=elapsed_ms,
             confusion=confusion_matrix(y_test, y_pred),
             report="",
         )
@@ -267,7 +267,7 @@ def main() -> None:
     print(f"=== Split unico de teste ({len(y_test)} amostras; 1 erro = {100/len(y_test):.1f} pontos) ===")
     for r in (gb_result, baseline_result):
         print(f"{r.model_name}: acc={r.accuracy:.4f} f1_macro={r.f1_macro:.4f} "
-              f"roc_auc_ovr={r.roc_auc_ovr:.4f} tempo={r.training_time_ms:.3f}ms")
+              f"roc_auc_ovr={r.roc_auc_ovr:.4f} tempo_inferencia={r.inference_time_ms:.3f}ms")
 
     print("\n=== Relatorio de classificacao (Gradient Boosting) ===")
     print(gb_result.report)
