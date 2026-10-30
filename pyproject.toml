@@ -1,5 +1,6 @@
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = ["slow: downloads data or takes more than a few seconds; excluded from CI"]
 
 [tool.ruff.lint]
 # Only real problems (syntax, undefined names, unused imports/variables); no style rules.
