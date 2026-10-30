@@ -42,12 +42,15 @@ Referências
 
 from __future__ import annotations
 
+import argparse
+import itertools
 import math
 import random
+import statistics
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 
 # ---------------------------------------------------------------------------
@@ -631,10 +634,69 @@ DF_CITIES: List[City] = [
 
 
 # ---------------------------------------------------------------------------
+# Referência exata e avaliação com várias sementes
+# ---------------------------------------------------------------------------
+
+def solve_exact(cities: List[City]) -> Tuple[List[City], float]:
+    """Tour ótimo por enumeração (força bruta), viável só para poucas cidades.
+
+    Fixa a primeira cidade (o tour é cíclico) e descarta a metade das
+    permutações por simetria (tour e seu reverso têm o mesmo custo), o que dá
+    (n-1)!/2 candidatos: 181.440 para n = 10.
+    """
+    first, rest = cities[0], cities[1:]
+    best_route: List[City] = list(cities)
+    best_distance: float = float("inf")
+    for perm in itertools.permutations(rest):
+        if perm[0].name > perm[-1].name:   # visita só um dos dois sentidos
+            continue
+        route = [first, *perm]
+        distance = compute_tour_distance(route)
+        if distance < best_distance:
+            best_route, best_distance = route, distance
+    return best_route, best_distance
+
+
+def evaluate_seeds(
+    cities: List[City],
+    seeds: range,
+    max_iterations: int,
+    optimal_km: float,
+) -> None:
+    """Roda HC e SA com cada semente e imprime média ± desvio e gap ao ótimo."""
+    runs: Dict[str, List[OptimizationResult]] = {"HillClimbing": [], "SimulatedAnnealing": []}
+    for seed in seeds:
+        runs["HillClimbing"].append(HillClimbing(cities, seed=seed).optimize(max_iterations))
+        runs["SimulatedAnnealing"].append(
+            SimulatedAnnealing(cities, initial_temperature=800.0, cooling_rate=0.995, seed=seed)
+            .optimize(max_iterations)
+        )
+
+    print(f"  Ótimo (força bruta): {optimal_km:.2f} km | {len(seeds)} sementes")
+    for name, results in runs.items():
+        dist = [r.best_distance_km for r in results]
+        hits = sum(d <= optimal_km + 1e-6 for d in dist)
+        std = statistics.stdev(dist) if len(dist) > 1 else 0.0
+        print(
+            f"  {name:<19}: {statistics.mean(dist):.2f} ± {std:.2f} km "
+            f"(min {min(dist):.2f}, max {max(dist):.2f}) | "
+            f"gap médio {max(0.0, statistics.mean(dist) / optimal_km * 100 - 100):.2f}% | "
+            f"ótimo em {hits}/{len(dist)} | "
+            f"iterações {statistics.median(r.iterations for r in results):,.0f} | "
+            f"tempo mediano {statistics.median(r.elapsed_ms for r in results):.2f} ms"
+        )
+
+
+# ---------------------------------------------------------------------------
 # Demonstração
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="TSP: Hill Climbing vs. Simulated Annealing")
+    parser.add_argument("--seeds", type=int, default=1,
+                        help="com N > 1, repete com N sementes e compara com o ótimo exato")
+    args = parser.parse_args()
+
     SEED: int = 42
     SEP: str = "─" * 62
 
@@ -668,3 +730,12 @@ if __name__ == "__main__":
     print(f"  Melhor algoritmo : {winner}")
     print(f"  Diferença        : {gap_km:.2f} km")
     print(SEP)
+
+    if args.seeds > 1:
+        _, optimal_km = solve_exact(DF_CITIES)
+        print()
+        print(SEP)
+        print("  Várias sementes")
+        print(SEP)
+        evaluate_seeds(DF_CITIES, range(SEED, SEED + args.seeds), 50_000, optimal_km)
+        print(SEP)
