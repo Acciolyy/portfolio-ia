@@ -209,10 +209,16 @@ class KalmanFilter2D:
         ], dtype=float)
 
         # Covariância do ruído de processo Q
-        # Modela a incerteza na aceleração do drone (vento, rajadas)
-        # Usando o modelo discreto de ruído de aceleração: Q = G·Gᵀ·σ²_a
-        g = np.array([[dt**2 / 2], [dt**2 / 2], [dt], [dt]])
-        self.Q = (g @ g.T) * (process_noise_std ** 2)
+        # Modela a incerteza na aceleração do drone (vento, rajadas). As acelerações
+        # em X e Y são independentes, então Q é bloco-diagonal por eixo: para cada
+        # eixo, o modelo discreto de aceleração com G = [dt²/2, dt]ᵀ dá
+        # Q_eixo = G·Gᵀ·σ²_a, sem covariância cruzada entre X e Y.
+        g = np.array([[dt**2 / 2], [dt]])
+        q_axis = (g @ g.T) * (process_noise_std ** 2)
+        self.Q = np.zeros((n_state, n_state))
+        for axis in (0, 1):
+            idx = [axis, axis + 2]               # (posição, velocidade) do eixo
+            self.Q[np.ix_(idx, idx)] = q_axis
 
         # Covariância do ruído de medição R (GPS isotrópico)
         self.R = np.eye(n_obs) * (measurement_noise_std ** 2)
