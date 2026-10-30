@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Secrets
+.env
+.env.*
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+
+# Datasets and weights (downloaded or generated at runtime)
+data/
+*.pt
+*.pth
+*.ckpt
+*.h5
+.DS_Store
