@@ -28,6 +28,12 @@ até o nó objetivo (Restaurante Universitário — RU).
 Os valores foram aproximados a partir do layout do campus; eles são admissíveis
 (nunca superestimam) e consistentes, o que garante a otimalidade do A*.
 
+A tabela ``FGA_HEURISTICS`` vale **somente para o objetivo RU**. A heurística
+depende do objetivo: reutilizá-la para outro destino a torna inadmissível e
+tira a garantia de otimalidade. Por isso a busca recusa objetivos cuja
+estimativa não seja zero (``h(objetivo) = 0``), e :func:`inadmissible_nodes`
+permite verificar uma tabela contra os custos reais.
+
 Exemplo de uso
 --------------
 ::
@@ -277,6 +283,12 @@ class InformedSearch(ABC):
         já definidos, o que é correto para o A* com heurística consistente e
         também seguro para o Greedy.
         """
+        if self._heuristic_map.get(goal_node, 0.0) != 0.0:
+            raise ValueError(
+                f"A heurística fornecida não é para o objetivo '{goal_node}': "
+                f"h({goal_node}) = {self._heuristic_map[goal_node]} (deveria ser 0). "
+                "Use uma tabela construída para este objetivo."
+            )
         initial_state = _SearchState(
             current_node=source_node,
             path_so_far=[source_node],
@@ -588,6 +600,39 @@ FGA_HEURISTICS: HeuristicMap = {
 
 
 # ---------------------------------------------------------------------------
+# Verificação de heurística
+# ---------------------------------------------------------------------------
+
+def inadmissible_nodes(
+    adjacency_list: AdjacencyList,
+    heuristic_map: HeuristicMap,
+    goal_node: str,
+) -> Dict[str, Tuple[float, float]]:
+    """Retorna ``{nó: (h(nó), custo_real)}`` para cada nó com ``h > custo_real``.
+
+    O custo real até *goal_node* vem de Dijkstra (o grafo é não-dirigido, então
+    a partir do objetivo obtém-se a distância de todos os nós até ele). Um
+    dicionário vazio significa que a heurística é admissível para esse objetivo.
+    """
+    best: Dict[str, float] = {goal_node: 0.0}
+    heap: List[Tuple[float, str]] = [(0.0, goal_node)]
+    while heap:
+        cost, node = heapq.heappop(heap)
+        if cost > best.get(node, float("inf")):
+            continue
+        for neighbour, weight in adjacency_list.get(node, []):
+            new_cost = cost + weight
+            if new_cost < best.get(neighbour, float("inf")):
+                best[neighbour] = new_cost
+                heapq.heappush(heap, (new_cost, neighbour))
+    return {
+        node: (heuristic_map.get(node, 0.0), real)
+        for node, real in best.items()
+        if heuristic_map.get(node, 0.0) > real + 1e-9
+    }
+
+
+# ---------------------------------------------------------------------------
 # Demonstração
 # ---------------------------------------------------------------------------
 
@@ -601,7 +646,7 @@ if __name__ == "__main__":
         ("Gate", "RU"),    # entrada do campus → refeitório
         ("LTIA", "RU"),    # lab de inovação   → refeitório
         ("Est",  "RU"),    # estacionamento    → refeitório
-        ("Adm",  "MEsp"),  # administrativo    → módulo esportivo (objetivo ≠ RU)
+        ("Adm",  "RU"),    # administrativo    → refeitório
     ]
 
     for source, goal in scenarios:
