@@ -17,6 +17,7 @@ ao final.
 
 from __future__ import annotations
 
+import argparse
 from dataclasses import dataclass, field
 from pathlib import Path
 from time import perf_counter
@@ -26,15 +27,17 @@ import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, random_split
 from torchvision import datasets, transforms
 
 # Pasta onde as figuras geradas por este script sao salvas.
 FIGS_DIR = Path("imagens")
 FIGS_DIR.mkdir(exist_ok=True, parents=True)
 
+# Semente da particao treino/validacao (fixa em todas as execucoes) e semente
+# padrao de inicializacao e embaralhamento. Ver --seeds em main().
 RANDOM_STATE = 42
-torch.manual_seed(RANDOM_STATE)
+N_VAL = 5_000
 
 
 @dataclass
@@ -124,21 +127,34 @@ class LeNet5(nn.Module):
 
 
 class MnistDataModule:
-    """Encapsula o download, a normalizacao e o particionamento do MNIST."""
+    """Encapsula o download, a normalizacao e o particionamento do MNIST.
+
+    Os 60k exemplos de treino sao divididos em 55k treino / 5k validacao com
+    uma semente fixa. O conjunto de teste (10k) so e usado na avaliacao final,
+    uma unica vez, para que nenhuma decisao de treino o enxergue.
+    """
 
     MEAN, STD = 0.1307, 0.3081  # estatisticas padrao do MNIST (LeCun et al.)
 
-    def __init__(self, data_dir: str = "./mnist_data", batch_size: int = 128) -> None:
+    def __init__(self, data_dir: str = "./mnist_data", batch_size: int = 128,
+                 n_val: int = N_VAL, split_seed: int = RANDOM_STATE) -> None:
         self._batch_size = batch_size
         transform = transforms.Compose([
             transforms.ToTensor(),
             transforms.Normalize((self.MEAN,), (self.STD,)),
         ])
-        self.train_set = datasets.MNIST(data_dir, train=True, download=True, transform=transform)
+        full_train = datasets.MNIST(data_dir, train=True, download=True, transform=transform)
         self.test_set = datasets.MNIST(data_dir, train=False, download=True, transform=transform)
+        self.train_set, self.val_set = random_split(
+            full_train, [len(full_train) - n_val, n_val],
+            generator=torch.Generator().manual_seed(split_seed),
+        )
 
     def train_loader(self) -> DataLoader:
         return DataLoader(self.train_set, batch_size=self._batch_size, shuffle=True, num_workers=2)
+
+    def val_loader(self) -> DataLoader:
+        return DataLoader(self.val_set, batch_size=self._batch_size, shuffle=False, num_workers=2)
 
     def test_loader(self) -> DataLoader:
         return DataLoader(self.test_set, batch_size=self._batch_size, shuffle=False, num_workers=2)
@@ -272,25 +288,61 @@ def plot_sample_predictions(model: LeNet5, loader: DataLoader, device: str, file
     plt.close(fig)
 
 
+@dataclass
+class RunResult:
+    """DTO com o resultado de uma execucao completa (uma semente)."""
+
+    seed: int
+    history: TrainingHistory
+    confusion: np.ndarray
+    val_accuracy: float
+    test_accuracy: float
+    trainer: LeNetTrainer
+
+
+def run_experiment(data: MnistDataModule, config: TrainingConfig, seed: int) -> RunResult:
+    """Treina com 'seed', acompanha a validacao e avalia o teste uma unica vez."""
+    torch.manual_seed(seed)
+    trainer = LeNetTrainer(LeNet5(), config)
+    history = trainer.fit(data.train_loader(), data.val_loader())
+
+    confusion = trainer.collect_confusion_matrix(data.test_loader())
+    test_accuracy = float(np.trace(confusion) / confusion.sum())
+    return RunResult(seed, history, confusion, history.val_accuracies[-1], test_accuracy, trainer)
+
+
 def main() -> None:
+    parser = argparse.ArgumentParser(description="LeNet-5 no MNIST")
+    parser.add_argument("--seeds", type=int, default=1,
+                        help="numero de execucoes com sementes consecutivas a partir de 42")
+    args = parser.parse_args()
+
     config = TrainingConfig()
     print(f"Dispositivo de treinamento: {config.device}")
 
     data = MnistDataModule(batch_size=config.batch_size)
-    train_loader = data.train_loader()
-    test_loader = data.test_loader()
+    print(f"Particao: {len(data.train_set)} treino / {len(data.val_set)} validacao / "
+          f"{len(data.test_set)} teste")
 
-    model = LeNet5()
-    trainer = LeNetTrainer(model, config)
-    history = trainer.fit(train_loader, test_loader)
+    results = []
+    for seed in range(RANDOM_STATE, RANDOM_STATE + args.seeds):
+        print(f"\n--- Semente {seed} ---")
+        results.append(run_experiment(data, config, seed))
+        print(f"Validacao (ultima epoca): {results[-1].val_accuracy*100:.2f}% | "
+              f"Teste: {results[-1].test_accuracy*100:.2f}%")
 
-    confusion = trainer.collect_confusion_matrix(test_loader)
-    final_accuracy = np.trace(confusion) / confusion.sum()
-    print(f"\nAcuracia final no conjunto de teste: {final_accuracy*100:.2f}%")
+    val_accs = np.array([r.val_accuracy for r in results]) * 100
+    test_accs = np.array([r.test_accuracy for r in results]) * 100
+    print(f"\nAcuracia de validacao: {val_accs.mean():.2f}% +- {val_accs.std(ddof=1) if len(val_accs) > 1 else 0.0:.2f}")
+    print(f"Acuracia de teste (avaliada uma vez por execucao): "
+          f"{test_accs.mean():.2f}% +- {test_accs.std(ddof=1) if len(test_accs) > 1 else 0.0:.2f} "
+          f"({len(results)} semente(s))")
 
-    plot_training_curves(history, "p4_training_curves.png")
-    plot_confusion_matrix(confusion, "p4_confusion_matrix.png")
-    plot_sample_predictions(trainer.model, test_loader, config.device, "p4_sample_predictions.png")
+    # Figuras da primeira execucao (semente 42).
+    first = results[0]
+    plot_training_curves(first.history, "p4_training_curves.png")
+    plot_confusion_matrix(first.confusion, "p4_confusion_matrix.png")
+    plot_sample_predictions(first.trainer.model, data.test_loader(), config.device, "p4_sample_predictions.png")
 
     print("\nFiguras salvas em:", FIGS_DIR)
 
