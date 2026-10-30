@@ -49,7 +49,9 @@ Parâmetros padrão
 
 from __future__ import annotations
 
+import argparse
 import random
+import statistics
 import time
 from dataclasses import dataclass, field
 from typing import List, Optional, Tuple
@@ -593,7 +595,31 @@ def visualizar_tabuleiro(genes: List[int]) -> str:
 # Demonstração
 # ---------------------------------------------------------------------------
 
+def avaliar_sementes(n: int, sementes: range) -> None:
+    """Repete o AG com várias sementes e imprime taxa de sucesso e gerações."""
+    resultados = [
+        GeneticAlgorithm(
+            n=n, tamanho_populacao=200, taxa_crossover=0.85, taxa_mutacao=0.05,
+            tamanho_torneio=5, elitismo=2, limite_geracoes=2_000, seed=seed,
+        ).executar()
+        for seed in sementes
+    ]
+    geracoes = [r.geracoes for r in resultados]
+    desvio = statistics.stdev(geracoes) if len(geracoes) > 1 else 0.0
+    print(
+        f"  N={n:<3} sucesso {sum(r.solucao_encontrada for r in resultados)}/{len(resultados)} | "
+        f"gerações {statistics.mean(geracoes):.1f} ± {desvio:.1f} "
+        f"(mediana {statistics.median(geracoes):.0f}, máx {max(geracoes)}) | "
+        f"tempo mediano {statistics.median(r.tempo_ms for r in resultados):.1f} ms"
+    )
+
+
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="N-Rainhas com algoritmo genético")
+    parser.add_argument("--seeds", type=int, default=1,
+                        help="com N > 1, repete com N sementes (a partir de 42) para vários tamanhos de tabuleiro")
+    args = parser.parse_args()
+
     SEP = "─" * 55
 
     # Configuração padrão: N=8, seed fixo para reprodutibilidade
@@ -615,3 +641,12 @@ if __name__ == "__main__":
     print(SEP)
     print("\nTabuleiro encontrado:\n")
     print(visualizar_tabuleiro(resultado.configuracao_tabuleiro))
+
+    if args.seeds > 1:
+        print()
+        print(SEP)
+        print(f"  Várias sementes ({args.seeds}, a partir de 42)")
+        print(SEP)
+        for tamanho in (8, 12, 16):
+            avaliar_sementes(tamanho, range(42, 42 + args.seeds))
+        print(SEP)
