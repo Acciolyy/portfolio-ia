@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """
 Projeto 3 – Filtro de Kalman: Estimativa de Posição de Drone com GPS Ruidoso
 =============================================================================
@@ -37,10 +35,12 @@ Bibliotecas
 - matplotlib : geração dos gráficos de trajetória e de erro.
 """
 
+from __future__ import annotations
+
 import argparse
 import statistics
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import List, Tuple
 
 import matplotlib

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """
 Projeto 2 – Modelo Oculto de Markov: Detecção de Padrão de Uso em Aplicativo
 =============================================================================
@@ -38,10 +36,12 @@ Bibliotecas
 - matplotlib : geração dos gráficos de resultados e comparativos.
 """
 
+from __future__ import annotations
+
 import argparse
 import statistics
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import List, Tuple
 
 import matplotlib
@@ -347,7 +347,6 @@ class HMMVisualizer:
             (forward_states[:T], "Forward (estado ML)",        axes[3]),
         ]
         for states_seq, title, ax in datasets:
-            colors = [HMMVisualizer.STATE_COLORS[s] for s in states_seq]
             for i in range(len(states_seq) - 1):
                 ax.axvspan(t[i], t[i + 1], color=HMMVisualizer.STATE_COLORS[states_seq[i]], alpha=0.7)
             ax.step(t, states_seq, where="mid", color="#333333", lw=0.8)

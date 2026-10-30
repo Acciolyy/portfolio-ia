@@ -1,2 +1,6 @@
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.ruff.lint]
+# Only real problems (syntax, undefined names, unused imports/variables); no style rules.
+select = ["E4", "E7", "E9", "F"]

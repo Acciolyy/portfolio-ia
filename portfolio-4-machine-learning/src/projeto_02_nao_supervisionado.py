@@ -192,11 +192,11 @@ def main() -> None:
     print(f"\nMelhor k por silhueta: k={best.k} (silhueta={best.silhouette:.4f})")
 
     final = analyzer.fit_final(k=3)
-    print(f"\n=== Agrupamento final com k=3 (numero real de cultivares) ===")
+    print("\n=== Agrupamento final com k=3 (numero real de cultivares) ===")
     print(f"Inercia: {final.inertia:.2f} | Silhueta: {final.silhouette:.4f}")
 
     validation = validate_against_ground_truth(final.labels, y_true)
-    print(f"\n=== Validacao externa (auditoria pos-hoc, nao usada no treino) ===")
+    print("\n=== Validacao externa (auditoria pos-hoc, nao usada no treino) ===")
     print(f"Adjusted Rand Index vs. cultivares reais: {validation.adjusted_rand_index:.4f}")
     print("Matriz de confusao (cluster alinhado x cultivar real):")
     print(validation.confusion)

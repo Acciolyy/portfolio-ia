@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """
 Projeto 1 – Rede Bayesiana: Diagnóstico de Qualidade de Café em Torrefadora
 ============================================================================
@@ -30,6 +28,8 @@ Bibliotecas
 - matplotlib : geração do diagrama visual da rede e dos gráficos de resultado.
 - networkx : construção e layout do grafo direcional para visualização.
 """
+
+from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
