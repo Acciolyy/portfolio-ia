@@ -93,6 +93,10 @@ probs = model((x - MEAN) / STD).softmax(dim=1)
 print(probs.argmax(dim=1).item(), probs.max().item())
 ```
 
+## Formato ONNX
+
+O repositório também traz `model.onnx` (opset 17, entrada `input` 1×1×28×28 com batch dinâmico, saída `logits`), gerado por `export_onnx.py` a partir de `model.safetensors`. Ele é usado pela demo estática no navegador (onnxruntime-web). Teste de paridade com o PyTorch nas primeiras 1000 imagens do teste do MNIST: as 1000 classes coincidem e a maior diferença entre probabilidades é de 1,07e-06 (limite do teste: 1e-4).
+
 ## Limitações
 
 - MNIST é um problema simples: dígitos centralizados, de tamanho padronizado, em tons de cinza, fundo preto. Desenhos à mão livre, fora desse padrão (descentralizados, muito finos ou grossos, fundo diferente, outro estilo de escrita), podem errar.
