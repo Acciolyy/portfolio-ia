@@ -25,7 +25,7 @@ model-index:
 
 # LeNet-5 no MNIST
 
-**English summary.** A LeNet-5-style CNN (ReLU instead of tanh, 61,706 parameters) trained with PyTorch on MNIST digit classification. Split: 55k train / 5k validation / 10k test, with the test set evaluated only once per run. The released weights (seed 42) reach **98.64%** test accuracy; over 5 seeds (42–46) the mean is **98.74% ± 0.07** (sample std). An earlier version that monitored the test set during training reported 98.90%; that number was leaked and should not be trusted. This is an academic portfolio project, not meant for production.
+**English summary.** A LeNet-5-style CNN (ReLU instead of tanh, 61,706 parameters) trained with PyTorch on MNIST digit classification. Split: 55k train / 5k validation / 10k test, with the test set evaluated only once per run. The released weights (seed 42) reach **98.64%** test accuracy; over 5 seeds (42–46) the mean is **98.74% ± 0.07** (sample std). An earlier version that monitored the test set during training reported 98.90%; that number was leaked and should not be trusted. It is a closed-set classifier: it always outputs one of the 10 digits and can be confidently wrong on out-of-distribution input (e.g. a drawn "X" predicted as 7 with 84%). This is an academic portfolio project, not meant for production.
 
 ## Descrição
 
@@ -96,6 +96,7 @@ print(probs.argmax(dim=1).item(), probs.max().item())
 ## Limitações
 
 - MNIST é um problema simples: dígitos centralizados, de tamanho padronizado, em tons de cinza, fundo preto. Desenhos à mão livre, fora desse padrão (descentralizados, muito finos ou grossos, fundo diferente, outro estilo de escrita), podem errar.
+- É um classificador de **conjunto fechado**: sempre escolhe um dos 10 dígitos e não tem a opção "não é um dígito". Entradas fora da distribuição (mais de um dígito, letras, rabiscos) podem receber confiança alta mesmo estando erradas; exemplo testado: um "X" desenhado foi classificado como 7 com 84%. O aviso de baixa confiança da demo (probabilidade máxima < 0,70) é só uma heurística e não resolve isso.
 - Os hiperparâmetros são fixos, sem busca sistemática; o treino é curto e sem aumento de dados.
 - Os 98,74% valem para o teste do MNIST, não para dígitos de outras fontes.
 

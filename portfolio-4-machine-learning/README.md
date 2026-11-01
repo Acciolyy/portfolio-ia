@@ -62,7 +62,7 @@ Rede convolucional baseada na LeNet-5 (1998) em PyTorch, com ReLU no lugar da ta
 </p>
 
 ## Limitações
-Hiperparâmetros fixos, sem busca sistemática (Gradient Boosting, α e γ do Q-Learning, épocas e taxa da LeNet-5). Wine tem só 178 amostras. O grid do Q-Learning é determinístico e pequeno. A validação do MNIST tem 5 mil amostras (ruído de ±0,19 entre sementes), o treino é curto e não há aumento de dados.
+Hiperparâmetros fixos, sem busca sistemática (Gradient Boosting, α e γ do Q-Learning, épocas e taxa da LeNet-5). Wine tem só 178 amostras. O grid do Q-Learning é determinístico e pequeno. A validação do MNIST tem 5 mil amostras (ruído de ±0,19 entre sementes), o treino é curto e não há aumento de dados. A LeNet-5 é um classificador de conjunto fechado: sempre escolhe um dos 10 dígitos e não tem a opção "não é um dígito"; entradas fora da distribuição podem receber confiança alta mesmo erradas (exemplo testado na demo: um "X" classificado como 7 com 84%). O aviso de baixa confiança da demo é só uma heurística e não resolve isso.
 
 ## Reexecutar
 Python 3.12 e `pip install -r ../requirements.txt`. A partir desta pasta (as figuras vão para `imagens/`, e o MNIST é baixado em `mnist_data/`, ignorado pelo git):
