@@ -4,41 +4,70 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>LeNet-5 no MNIST</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%2314275c'/%3E%3Cpath d='M9 9h14l-8 7 8 3-1 6H9' fill='none' stroke='%23fbfaf4' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;700&display=swap">
+  <link rel="stylesheet" href="style.css?v=4">
 </head>
 <body>
   <main>
-    <h1>Reconhecimento de dígitos (LeNet-5 / MNIST)</h1>
-    <p><strong>Desenhe um único dígito (0 a 9)</strong> no quadro. O modelo roda inteiro no seu navegador.
-      Projeto acadêmico de portfólio; desenhos fora do padrão do MNIST podem errar.</p>
+    <header>
+      <h1>Reconhecimento de dígitos</h1>
+      <p class="lead"><strong>Desenhe um único dígito (0 a 9)</strong> no quadro. A LeNet-5, treinada no MNIST,
+        diz qual número ela enxerga. Projeto acadêmico de portfólio; desenhos fora do padrão do MNIST podem errar.</p>
+    </header>
 
-    <div class="grid">
-      <section>
-        <canvas id="pad" width="280" height="280" aria-label="Área de desenho"></canvas>
-        <div class="row">
-          <button id="classify" type="button" disabled>Classificar</button>
+    <div class="layout">
+      <section class="draw" aria-labelledby="draw-title">
+        <h2 id="draw-title">Seu desenho</h2>
+        <div class="paper">
+          <canvas id="pad" width="280" height="280" aria-label="Quadro de desenho: desenhe um dígito com o mouse ou o dedo"></canvas>
+        </div>
+        <div class="actions">
+          <button id="classify" type="button" class="primary" disabled>Classificar</button>
           <button id="clear" type="button" class="secondary">Limpar</button>
         </div>
-        <p id="status" class="muted">Carregando o modelo…</p>
+        <p id="status" class="muted" role="status">Carregando o modelo...</p>
       </section>
 
-      <section>
-        <div id="warning" class="warning" hidden>⚠️ <strong>Baixa confiança:</strong> a entrada pode não ser um dígito único ou estar fora do padrão do MNIST.</div>
-        <h2>Probabilidades</h2>
-        <ol id="bars" class="bars"></ol>
-        <h2>O que o modelo vê (28×28)</h2>
-        <canvas id="seen" width="28" height="28" aria-label="Imagem 28 por 28 vista pelo modelo"></canvas>
+      <section class="result" aria-labelledby="result-title">
+        <h2 id="result-title">Resultado</h2>
+
+        <div id="card" class="card" data-state="empty" aria-live="polite">
+          <div class="empty">
+            <p class="empty-title">Nada para classificar ainda</p>
+            <p>Desenhe um dígito no quadro ao lado, com traço firme e ocupando boa parte do papel. Ao soltar o traço, o resultado aparece aqui.</p>
+          </div>
+
+          <div class="filled">
+            <div class="verdict">
+              <span id="digit" class="digit" aria-label="Dígito previsto">-</span>
+              <span class="conf"><span id="conf" class="conf-value">0%</span><span class="conf-label">de confiança</span></span>
+            </div>
+            <p id="alert" class="alert-text" hidden><strong>Baixa confiança:</strong> a entrada pode não ser um dígito único ou estar fora do padrão do MNIST.</p>
+            <ol id="bars" class="bars" aria-label="Probabilidade de cada dígito"></ol>
+          </div>
+        </div>
+      </section>
+
+      <section class="seen" aria-labelledby="seen-title">
+        <h2 id="seen-title">O que o modelo vê</h2>
+        <div class="seen-frame"><canvas id="seen" width="28" height="28" aria-label="Imagem de 28 por 28 pixels recebida pelo modelo"></canvas></div>
+        <p class="muted caption">28 × 28 pixels: é só isso que o modelo recebe.</p>
       </section>
     </div>
 
-    <p class="muted">
-      <a href="https://huggingface.co/Acciolyyy/lenet5-mnist-unb">Modelo no Hugging Face</a> ·
+    <footer>
+      <a href="https://huggingface.co/Acciolyyy/lenet5-mnist-unb">Modelo no Hugging Face</a>
+      <span aria-hidden="true">·</span>
       <a href="https://github.com/Acciolyy/portfolio-ia">Código no GitHub</a>
-    </p>
+      <p>O modelo roda inteiro no seu navegador, sem servidor.</p>
+    </footer>
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/ort.min.js"></script>
-  <script src="preprocess.js"></script>
-  <script src="app.js"></script>
+  <script src="preprocess.js?v=4"></script>
+  <script src="app.js?v=4"></script>
 </body>
 </html>

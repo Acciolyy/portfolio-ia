@@ -5,7 +5,10 @@
   const ctx = pad.getContext("2d", { willReadFrequently: true });
   const seen = document.getElementById("seen");
   const statusEl = document.getElementById("status");
-  const warning = document.getElementById("warning");
+  const card = document.getElementById("card");
+  const digitEl = document.getElementById("digit");
+  const confEl = document.getElementById("conf");
+  const alertEl = document.getElementById("alert");
   const classifyBtn = document.getElementById("classify");
   const bars = document.getElementById("bars");
   let session = null;
@@ -15,8 +18,11 @@
     ctx.fillStyle = "#fff";
     ctx.fillRect(0, 0, pad.width, pad.height);
     drawn = false;
-    warning.hidden = true;
-    seen.getContext("2d").clearRect(0, 0, 28, 28);
+    card.dataset.state = "empty";
+    alertEl.hidden = true;
+    const sc = seen.getContext("2d");
+    sc.fillStyle = "#000";
+    sc.fillRect(0, 0, 28, 28);
     renderBars(null);
   }
 
@@ -54,16 +60,22 @@
   pad.addEventListener("pointercancel", end);
 
   // ---- resultado ----
+  // As 10 linhas sao criadas uma vez; depois so a largura muda (assim a transicao CSS anima).
   function renderBars(probs) {
-    bars.innerHTML = "";
-    const top = probs ? probs.indexOf(Math.max(...probs)) : -1;
-    for (let i = 0; i < 10; i++) {
-      const p = probs ? probs[i] : 0;
-      const li = document.createElement("li");
-      if (i === top) li.className = "top";
-      li.innerHTML = `<span>${i}</span><span class="track"><span class="fill" style="display:block;width:${(p * 100).toFixed(1)}%"></span></span><span>${(p * 100).toFixed(1)}%</span>`;
-      bars.appendChild(li);
+    if (!bars.children.length) {
+      for (let i = 0; i < 10; i++) {
+        const li = document.createElement("li");
+        li.innerHTML = `<span>${i}</span><span class="track"><span class="fill"></span></span><span class="pct"></span>`;
+        bars.appendChild(li);
+      }
     }
+    const top = probs ? probs.indexOf(Math.max(...probs)) : -1;
+    [...bars.children].forEach((li, i) => {
+      const p = probs ? probs[i] : 0;
+      li.classList.toggle("top", i === top);
+      li.querySelector(".fill").style.width = (p * 100).toFixed(1) + "%";
+      li.querySelector(".pct").textContent = (p * 100).toFixed(1) + "%";
+    });
   }
 
   function showSeen(view) {
@@ -94,7 +106,11 @@
     const sum = exps.reduce((a, b) => a + b, 0);
     const probs = exps.map((v) => v / sum);
     renderBars(probs);
-    warning.hidden = Math.max(...probs) >= LOW_CONFIDENCE;
+    const best = Math.max(...probs);
+    digitEl.textContent = String(probs.indexOf(best));
+    confEl.textContent = (best * 100).toFixed(1) + "%";
+    alertEl.hidden = best >= LOW_CONFIDENCE;
+    card.dataset.state = best >= LOW_CONFIDENCE ? "ok" : "low";
   }
 
   document.getElementById("clear").addEventListener("click", clearPad);
