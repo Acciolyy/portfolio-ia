@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LeNet-5 no MNIST</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main>
+    <h1>Reconhecimento de dígitos (LeNet-5 / MNIST)</h1>
+    <p><strong>Desenhe um único dígito (0 a 9)</strong> no quadro. O modelo roda inteiro no seu navegador.
+      Projeto acadêmico de portfólio; desenhos fora do padrão do MNIST podem errar.</p>
+
+    <div class="grid">
+      <section>
+        <canvas id="pad" width="280" height="280" aria-label="Área de desenho"></canvas>
+        <div class="row">
+          <button id="classify" type="button" disabled>Classificar</button>
+          <button id="clear" type="button" class="secondary">Limpar</button>
+        </div>
+        <p id="status" class="muted">Carregando o modelo…</p>
+      </section>
+
+      <section>
+        <div id="warning" class="warning" hidden>⚠️ <strong>Baixa confiança:</strong> a entrada pode não ser um dígito único ou estar fora do padrão do MNIST.</div>
+        <h2>Probabilidades</h2>
+        <ol id="bars" class="bars"></ol>
+        <h2>O que o modelo vê (28×28)</h2>
+        <canvas id="seen" width="28" height="28" aria-label="Imagem 28 por 28 vista pelo modelo"></canvas>
+      </section>
+    </div>
+
+    <p class="muted">
+      <a href="https://huggingface.co/Acciolyyy/lenet5-mnist-unb">Modelo no Hugging Face</a> ·
+      <a href="https://github.com/Acciolyy/portfolio-ia">Código no GitHub</a>
+    </p>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/ort.min.js"></script>
+  <script src="preprocess.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
