@@ -18,6 +18,7 @@ ao final.
 from __future__ import annotations
 
 import argparse
+import json
 from dataclasses import dataclass, field
 from pathlib import Path
 from time import perf_counter
@@ -27,6 +28,7 @@ import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from safetensors.torch import save_file
 from torch.utils.data import DataLoader, random_split
 from torchvision import datasets, transforms
 
@@ -288,6 +290,32 @@ def plot_sample_predictions(model: LeNet5, loader: DataLoader, device: str, file
     plt.close(fig)
 
 
+def export_weights(model: LeNet5, out_dir: Path, seed: int) -> None:
+    """Salva os pesos em model.safetensors e a descricao do modelo em config.json."""
+    out_dir.mkdir(parents=True, exist_ok=True)
+    state = {k: v.detach().cpu().contiguous() for k, v in model.state_dict().items()}
+    save_file(state, str(out_dir / "model.safetensors"))
+    config = {
+        "architecture": "LeNet5",
+        "input_shape": [1, 28, 28],
+        "layers": [
+            {"type": "Conv2d", "in_channels": 1, "out_channels": 6, "kernel_size": 5, "padding": 2},
+            {"type": "ReLU"}, {"type": "MaxPool2d", "kernel_size": 2},
+            {"type": "Conv2d", "in_channels": 6, "out_channels": 16, "kernel_size": 5, "padding": 0},
+            {"type": "ReLU"}, {"type": "MaxPool2d", "kernel_size": 2},
+            {"type": "Flatten"},
+            {"type": "Linear", "in_features": 400, "out_features": 120}, {"type": "ReLU"},
+            {"type": "Linear", "in_features": 120, "out_features": 84}, {"type": "ReLU"},
+            {"type": "Linear", "in_features": 84, "out_features": 10},
+        ],
+        "normalization": {"mean": MnistDataModule.MEAN, "std": MnistDataModule.STD},
+        "classes": [str(i) for i in range(10)],
+        "n_classes": 10,
+        "seed": seed,
+    }
+    (out_dir / "config.json").write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+
+
 @dataclass
 class RunResult:
     """DTO com o resultado de uma execucao completa (uma semente)."""
@@ -315,6 +343,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="LeNet-5 no MNIST")
     parser.add_argument("--seeds", type=int, default=1,
                         help="numero de execucoes com sementes consecutivas a partir de 42")
+    parser.add_argument("--save-weights", type=Path, default=None, metavar="DIR",
+                        help="salva os pesos da semente 42 em DIR/model.safetensors e DIR/config.json")
     args = parser.parse_args()
 
     config = TrainingConfig()
@@ -340,6 +370,9 @@ def main() -> None:
 
     # Figuras da primeira execucao (semente 42).
     first = results[0]
+    if args.save_weights is not None:
+        export_weights(first.trainer.model, args.save_weights, RANDOM_STATE)
+        print("Pesos salvos em:", args.save_weights)
     plot_training_curves(first.history, "p4_training_curves.png")
     plot_confusion_matrix(first.confusion, "p4_confusion_matrix.png")
     plot_sample_predictions(first.trainer.model, data.test_loader(), config.device, "p4_sample_predictions.png")

@@ -28,3 +28,5 @@ data/
 *.h5
 .DS_Store
 mnist_data/
+*.safetensors
+hf-space/
