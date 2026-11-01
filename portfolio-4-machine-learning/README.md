@@ -62,7 +62,7 @@ Rede convolucional baseada na LeNet-5 (1998) em PyTorch, com ReLU no lugar da ta
 </p>
 
 #### Modelo e demo no Hugging Face
-[![Hugging Face: modelo](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-modelo-yellow)](https://huggingface.co/Acciolyyy/lenet5-mnist-unb) [![Hugging Face: demo](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-demo-blue)](https://huggingface.co/spaces/Acciolyyy/lenet5-mnist-demo)
+[![Hugging Face: modelo](https://img.shields.io/badge/Hugging%20Face-modelo-yellow?logo=huggingface&logoColor=white)](https://huggingface.co/Acciolyyy/lenet5-mnist-unb) [![Hugging Face: demo](https://img.shields.io/badge/Hugging%20Face-demo-blue?logo=huggingface&logoColor=white)](https://huggingface.co/spaces/Acciolyyy/lenet5-mnist-demo)
 
 - **Modelo:** [Acciolyyy/lenet5-mnist-unb](https://huggingface.co/Acciolyyy/lenet5-mnist-unb) (pesos da semente 42 em `safetensors` e `ONNX`, 98,64% no teste; a média das 5 sementes continua 98,74% ± 0,07).
 - **Demo no navegador:** [Acciolyyy/lenet5-mnist-demo](https://huggingface.co/spaces/Acciolyyy/lenet5-mnist-demo), um Space estático em `../hf-space-static/` (HTML, JS e onnxruntime-web, sem servidor). Um "X" desenhado pode ser classificado como dígito com confiança alta; veja as limitações.

@@ -1,7 +1,7 @@
 # Portfólio de Inteligência Artificial
 
 [![CI](https://github.com/Acciolyy/portfolio-ia/actions/workflows/ci.yml/badge.svg)](https://github.com/Acciolyy/portfolio-ia/actions/workflows/ci.yml)
-[![Hugging Face: modelo](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-modelo-yellow)](https://huggingface.co/Acciolyyy/lenet5-mnist-unb) [![Hugging Face: demo](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-demo-blue)](https://huggingface.co/spaces/Acciolyyy/lenet5-mnist-demo)
+[![Hugging Face: modelo](https://img.shields.io/badge/Hugging%20Face-modelo-yellow?logo=huggingface&logoColor=white)](https://huggingface.co/Acciolyyy/lenet5-mnist-unb) [![Hugging Face: demo](https://img.shields.io/badge/Hugging%20Face-demo-blue?logo=huggingface&logoColor=white)](https://huggingface.co/spaces/Acciolyyy/lenet5-mnist-demo)
 
 Projetos da disciplina Inteligência Artificial (FGA0221, UnB), implementados do zero e revisados em outubro de 2026.
 
