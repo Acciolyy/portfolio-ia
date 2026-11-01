@@ -1,0 +1,6 @@
+torch
+safetensors
+huggingface_hub
+numpy
+scipy
+pillow
