@@ -1,6 +1,7 @@
 # Portfólio de Inteligência Artificial
 
 [![CI](https://github.com/Acciolyy/portfolio-ia/actions/workflows/ci.yml/badge.svg)](https://github.com/Acciolyy/portfolio-ia/actions/workflows/ci.yml)
+[![Hugging Face: modelo](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-modelo-yellow)](https://huggingface.co/Acciolyyy/lenet5-mnist-unb) [![Hugging Face: demo](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-demo-blue)](https://huggingface.co/spaces/Acciolyyy/lenet5-mnist-demo)
 
 Projetos da disciplina Inteligência Artificial (FGA0221, UnB), implementados do zero e revisados em outubro de 2026.
 
@@ -72,7 +73,7 @@ No HMM, Viterbi e Forward ficam equivalentes nesta configuração: a diferença 
 
 ## Portfólio 4: aprendizado de máquina
 
-[Pasta](portfolio-4-machine-learning). Os quatro paradigmas em scikit-learn e PyTorch. Os dois primeiros usam o dataset Wine, para comparar o mesmo problema com e sem rótulos. A padronização dos atributos entra num `Pipeline`, então é ajustada só no treino de cada fold; os dois classificadores são avaliados nas mesmas partições, o que permite a diferença pareada (a regressão logística fica à frente em 24 folds, empata em 17 e perde em 9, de 50). No não supervisionado, o K-Means roda nas 13 dimensões padronizadas e o PCA serve só para desenhar; o k vem da silhueta, e os rótulos aparecem apenas na auditoria final. O Q-Learning tem referência exata: Dijkstra sobre o grid dá o mínimo de 14 passos e o retorno ótimo 37, e a política gulosa atinge os dois em 10 de 10 sementes. A LeNet-5 (ReLU no lugar da tanh) usa uma validação separada do treino e avalia o teste uma única vez por execução.
+[Pasta](portfolio-4-machine-learning). Os quatro paradigmas em scikit-learn e PyTorch. Os dois primeiros usam o dataset Wine, para comparar o mesmo problema com e sem rótulos. A padronização dos atributos entra num `Pipeline`, então é ajustada só no treino de cada fold; os dois classificadores são avaliados nas mesmas partições, o que permite a diferença pareada (a regressão logística fica à frente em 24 folds, empata em 17 e perde em 9, de 50). No não supervisionado, o K-Means roda nas 13 dimensões padronizadas e o PCA serve só para desenhar; o k vem da silhueta, e os rótulos aparecem apenas na auditoria final. O Q-Learning tem referência exata: Dijkstra sobre o grid dá o mínimo de 14 passos e o retorno ótimo 37, e a política gulosa atinge os dois em 10 de 10 sementes. A LeNet-5 (ReLU no lugar da tanh) usa uma validação separada do treino e avalia o teste uma única vez por execução. Os pesos (semente 42, 98,64% no teste) estão no [modelo no Hugging Face](https://huggingface.co/Acciolyyy/lenet5-mnist-unb), e a [demo no navegador](https://huggingface.co/spaces/Acciolyyy/lenet5-mnist-demo) roda a rede inteira no cliente (ONNX).
 
 <p align="center">
   <picture>

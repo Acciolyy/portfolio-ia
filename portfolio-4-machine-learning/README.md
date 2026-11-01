@@ -61,6 +61,14 @@ Rede convolucional baseada na LeNet-5 (1998) em PyTorch, com ReLU no lugar da ta
   <img src="imagens/p4_sample_predictions.png" width="30%" alt="Exemplos de dígitos do conjunto de teste com a classe prevista.">
 </p>
 
+#### Modelo e demo no Hugging Face
+[![Hugging Face: modelo](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-modelo-yellow)](https://huggingface.co/Acciolyyy/lenet5-mnist-unb) [![Hugging Face: demo](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-demo-blue)](https://huggingface.co/spaces/Acciolyyy/lenet5-mnist-demo)
+
+- **Modelo:** [Acciolyyy/lenet5-mnist-unb](https://huggingface.co/Acciolyyy/lenet5-mnist-unb) (pesos da semente 42 em `safetensors` e `ONNX`, 98,64% no teste; a média das 5 sementes continua 98,74% ± 0,07).
+- **Demo no navegador:** [Acciolyyy/lenet5-mnist-demo](https://huggingface.co/spaces/Acciolyyy/lenet5-mnist-demo), um Space estático em `../hf-space-static/` (HTML, JS e onnxruntime-web, sem servidor). Um "X" desenhado pode ser classificado como dígito com confiança alta; veja as limitações.
+- **Demo local em Gradio:** `../hf-space/app.py` (`python ../hf-space/app.py`), mesma rede e mesmo pré-processamento em Python; baixa os pesos do repositório do modelo. Não está publicada, porque Spaces Gradio exigem plano pago.
+- Exportar os pesos: `python src/projeto_04_deep_learning.py --save-weights ../hf`; exportar para ONNX e testar a paridade: `python ../hf/export_onnx.py`.
+
 ## Limitações
 Hiperparâmetros fixos, sem busca sistemática (Gradient Boosting, α e γ do Q-Learning, épocas e taxa da LeNet-5). Wine tem só 178 amostras. O grid do Q-Learning é determinístico e pequeno. A validação do MNIST tem 5 mil amostras (ruído de ±0,19 entre sementes), o treino é curto e não há aumento de dados. A LeNet-5 é um classificador de conjunto fechado: sempre escolhe um dos 10 dígitos e não tem a opção "não é um dígito"; entradas fora da distribuição podem receber confiança alta mesmo erradas (exemplo testado na demo: um "X" classificado como 7 com 84%). O aviso de baixa confiança da demo é só uma heurística e não resolve isso.
 
